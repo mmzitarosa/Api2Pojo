@@ -1,7 +1,8 @@
-package it.mmzitarosa.api2pojo;
+package it.mmzitarosa.api2pojo.reflection;
 
 import it.mmzitarosa.api2pojo.utils.Utility;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -12,12 +13,72 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Reflection {
 
-    public static String newGenerateClass(Object object, String fileName) throws IOException {
+    private String url;
+    private String servlet;
+    private String content;
+    private File destinationFolder;
+    private String innerPath;
+
+    public Reflection(String url, String content) {
+        this.url = url;
+        this.content = content;
+        if ((servlet = ReflectionUtility.retrieveServletName(url)) == null) {
+            servlet = ReflectionUtility.retrieveDomainName(url);
+        }
+        innerPath = ReflectionUtility.retrievePackageName(url).replace(".", "/");
+
+        destinationFolder = new File(System.getProperty("user.dir"), "out/" + innerPath);
+        if (!destinationFolder.exists() || !destinationFolder.isDirectory()) {
+            if (!destinationFolder.mkdirs()) {
+                destinationFolder = new File(System.getProperty("user.dir"));
+            }
+        }
+    }
+
+    public void setProjectPath(String path) throws ReflectionException {
+        File file = new File(path);
+        if (!file.isDirectory()) {
+            throw new ReflectionException("Project file (\"" + file.getAbsolutePath() + "\") must be a directory. ");
+        }
+        if (file.listFiles() != null && Objects.requireNonNull(file.listFiles()).length == 0) {
+            throw new ReflectionException("Project directory (\"" + file.getAbsolutePath() + "\") is empty.");
+        }
+        File src = new File(file, "src/main/java");
+        if (!src.exists()) {
+            src = new File(file, "app/src/main/java/");
+        }
+        if (!src.exists()) {
+            throw new ReflectionException("Cannot find \"src/main/java\" directory.");
+        }
+
+        this.destinationFolder = new File(src, innerPath);
+        if (!destinationFolder.exists() || !destinationFolder.isDirectory()) {
+            if (!destinationFolder.mkdirs()) {
+                destinationFolder = src;
+            }
+        }
+    }
+
+
+    public void generateClass() throws ReflectionException {
+        try {
+            try {
+                newGenerateClass(new JSONObject(content), servlet);
+            } catch (JSONException e) {
+                newGenerateClass(new JSONArray(content), servlet);
+            }
+        } catch (Exception e) {
+            throw new ReflectionException(e);
+        }
+    }
+
+    private String newGenerateClass(Object object, String fileName) throws IOException {
         File file;
         if (object == null) {
             return Object.class.getSimpleName();
@@ -62,12 +123,12 @@ public class Reflection {
         return nameFromClassFile(file);
     }
 
-    private static File createClass(String name) throws IOException {
+    private File createClass(String name) throws IOException {
         name = Utility.capitalize(name);
-        File classFile = new File("C:\\Users\\matte\\IdeaProjects\\Api2Pojo\\src\\main\\java\\it\\mmzitarosa\\api2pojo\\model", name + ".java");
+        File classFile = new File(destinationFolder, name + ".java");
 
         // generate the source code, using the source filename as the class name
-        String sourceCode = "package it.mmzitarosa.api2pojo.model;\n\n" +
+        String sourceCode = "package " + ReflectionUtility.retrievePackageName(url) + ";\n\n" +
                 "public class " + name + " {\n\n" +
                 "}";
 
@@ -78,11 +139,11 @@ public class Reflection {
         return classFile;
     }
 
-    private static void addField(String type, String name, File classFile) {
+    private void addField(String type, String name, File classFile) {
         addField(type, name, null, classFile);
     }
 
-    private static void addField(String type, String name, String value, File classFile) {
+    private void addField(String type, String name, String value, File classFile) {
         try {
             String files = new String(Files.readAllBytes(Paths.get(classFile.getAbsolutePath())));
             String[] lines = files.split("\n");
@@ -100,13 +161,13 @@ public class Reflection {
             } else {
                 lines[lines.length - 1] = "    private " + type + " " + name + ";\n" + lines[lines.length - 1];
             }
-            Files.write(Paths.get(classFile.getAbsolutePath()), join(lines).getBytes());
+            Files.write(Paths.get(classFile.getAbsolutePath()), Utility.joinStrings('\n', lines).getBytes());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static void addConstructors(File classFile) {
+    private void addConstructors(File classFile) {
         try {
             String files = new String(Files.readAllBytes(Paths.get(classFile.getAbsolutePath())));
             String[] lines = files.split("\n");
@@ -134,13 +195,13 @@ public class Reflection {
 
             lines[lines.length - 1] = constructor + "\n" + lines[lines.length - 1];
 
-            Files.write(Paths.get(classFile.getAbsolutePath()), join(lines).getBytes());
+            Files.write(Paths.get(classFile.getAbsolutePath()), Utility.joinStrings('\n', lines).getBytes());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static Map<String, String> containsList(Map<String, String> map) {
+    private Map<String, String> containsList(Map<String, String> map) {
         Map<String, String> result = new HashMap<>();
         for (String key : map.keySet()) {
             if (map.get(key).startsWith("List")) {
@@ -150,7 +211,7 @@ public class Reflection {
         return (result.size() != 0) ? result : null;
     }
 
-    private static void addGetterSetter(File classFile) {
+    private void addGetterSetter(File classFile) {
         try {
             String files = new String(Files.readAllBytes(Paths.get(classFile.getAbsolutePath())));
             String[] lines = files.split("\n");
@@ -169,19 +230,10 @@ public class Reflection {
 
             lines[lines.length - 1] = getterSetter + lines[lines.length - 1];
 
-            Files.write(Paths.get(classFile.getAbsolutePath()), join(lines).getBytes());
+            Files.write(Paths.get(classFile.getAbsolutePath()), Utility.joinStrings('\n', lines).getBytes());
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private static String join(String[] lines) {
-        StringBuilder text = new StringBuilder();
-        for (Object line : lines) {
-            text.append((String) line);
-            text.append("\n");
-        }
-        return text.toString();
     }
 
     private static String nameFromClassFile(File classFile) {
