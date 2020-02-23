@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 
 public class Utility {
 
-    private static final String URL_REGEX = "^(https?\\:\\/\\/([\\w]+\\.)+[\\w]+)(\\/?|\\w+)*(\\/\\w+\\.\\w+)?(\\w\\?(\\&?[\\w\\-\\_]+\\=[\\w\\-\\_]+)+)?$";
+    public static final String URL_REGEX = "^(?:(https?)\\:\\/\\/(?:([\\w\\-]+)\\.)+([\\w\\-]+))((?:\\/([\\w\\%\\-]+))*(?:(?:\\.[\\w\\%\\-]+)?\\?(?:\\&?[\\w\\%\\-]+\\=[\\w\\%\\-]+)+)?)?$";
 
     public static boolean isValidURL(String url) {
         Pattern pattern = Pattern.compile(URL_REGEX);
