@@ -128,7 +128,7 @@ public class Reflection {
         File classFile = new File(destinationFolder, name + ".java");
 
         // generate the source code, using the source filename as the class name
-        String sourceCode = "package " + ReflectionUtility.retrievePackageName(url) + ";\n\n" +
+        String sourceCode = Utility.generateHeaderComment() + "\n\n" + "package " + ReflectionUtility.retrievePackageName(url) + ";\n\n" +
                 "public class " + name + " {\n\n" +
                 "}";
 
