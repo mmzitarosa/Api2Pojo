@@ -1,6 +1,7 @@
 package it.mmzitarosa.api2pojo.network;
 
 import okhttp3.*;
+import okhttp3.internal.http2.Header;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.json.JSONException;
@@ -15,6 +16,7 @@ import java.util.Objects;
 public class Network {
 
     private OkHttpClient client;
+    private Header auth = null;
 
     public Network() {
         client = new OkHttpClient();
@@ -76,7 +78,7 @@ public class Network {
     private Request buildRequest(Verb verb, @NotNull String url, @Nullable Map<String, Object> parametersMap) throws MalformedURLException, JSONException, NetworkException {
         HttpUrl.Builder urlBuilder = Objects.requireNonNull(HttpUrl.parse(url)).newBuilder();
         Request.Builder requestBuilder = new Request.Builder();
-
+        requestBuilder.addHeader(auth.name.utf8(), auth.value.utf8());
         switch (verb) {
             case GET:
                 if (parametersMap != null) {
@@ -102,6 +104,10 @@ public class Network {
         URL requestUrl = new URL(urlBuilder.build().toString());
         requestBuilder.url(requestUrl);
         return requestBuilder.build();
+    }
+
+    public void setXAuthToken(String token) {
+        auth = new Header("X-Auth-Token", token);
     }
 
     private enum Verb {

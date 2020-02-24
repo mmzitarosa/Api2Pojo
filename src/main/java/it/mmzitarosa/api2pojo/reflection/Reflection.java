@@ -13,14 +13,13 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Reflection {
 
     private String url;
-    private String servlet;
+//    private String servlet;
     private String content;
     private File destinationFolder;
     private String innerPath;
@@ -28,9 +27,6 @@ public class Reflection {
     public Reflection(String url, String content) {
         this.url = url;
         this.content = content;
-        if ((servlet = ReflectionUtility.retrieveServletName(url)) == null) {
-            servlet = ReflectionUtility.retrieveDomainName(url);
-        }
         innerPath = ReflectionUtility.retrievePackageName(url).replace(".", "/");
 
         destinationFolder = new File(System.getProperty("user.dir"), "out/" + innerPath);
@@ -41,22 +37,8 @@ public class Reflection {
         }
     }
 
-    public void setProjectPath(String path) throws ReflectionException {
-        File file = new File(path);
-        if (!file.isDirectory()) {
-            throw new ReflectionException("Project file (\"" + file.getAbsolutePath() + "\") must be a directory. ");
-        }
-        if (file.listFiles() != null && Objects.requireNonNull(file.listFiles()).length == 0) {
-            throw new ReflectionException("Project directory (\"" + file.getAbsolutePath() + "\") is empty.");
-        }
-        File src = new File(file, "src/main/java");
-        if (!src.exists()) {
-            src = new File(file, "app/src/main/java/");
-        }
-        if (!src.exists()) {
-            throw new ReflectionException("Cannot find \"src/main/java\" directory.");
-        }
-
+    public void setProject(File file) throws ReflectionException {
+        File src = ReflectionUtility.verifyProjectFolder(file);
         this.destinationFolder = new File(src, innerPath);
         if (!destinationFolder.exists() || !destinationFolder.isDirectory()) {
             if (!destinationFolder.mkdirs()) {
@@ -65,13 +47,12 @@ public class Reflection {
         }
     }
 
-
-    public void generateClass() throws ReflectionException {
+    public void generateClass(String className) throws ReflectionException {
         try {
             try {
-                newGenerateClass(new JSONObject(content), servlet);
+                newGenerateClass(new JSONObject(content), className);
             } catch (JSONException e) {
-                newGenerateClass(new JSONArray(content), servlet);
+                newGenerateClass(new JSONArray(content), className);
             }
         } catch (Exception e) {
             throw new ReflectionException(e);

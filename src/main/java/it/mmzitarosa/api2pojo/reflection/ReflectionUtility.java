@@ -3,8 +3,10 @@ package it.mmzitarosa.api2pojo.reflection;
 import it.mmzitarosa.api2pojo.utils.Utility;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,6 +34,34 @@ public class ReflectionUtility {
         return false;
     }
 
+    public static File verifyProjectFolder(File file) throws ReflectionException {
+        if (!file.isDirectory()) {
+            throw new ReflectionException("Project file (\"" + file.getAbsolutePath() + "\") must be a directory. ");
+        }
+        if (file.listFiles() != null && Objects.requireNonNull(file.listFiles()).length == 0) {
+            throw new ReflectionException("Project directory (\"" + file.getAbsolutePath() + "\") is empty.");
+        }
+        File src = new File(file, "src/main/java");
+        if (!src.exists()) {
+            src = new File(file, "app/src/main/java/");
+        }
+        if (!src.exists()) {
+            throw new ReflectionException("Cannot find \"src/main/java\" directory.");
+        }
+        return src;
+    }
+
+    public static void verifyClassName(String className) throws ReflectionException {
+        if (className == null || className.isEmpty()) {
+            throw new ReflectionException("Class name (\"" + className + "\") is null or empty.");
+        }
+        Pattern pattern = Pattern.compile("^[a-zA-Z][\\w]*$");
+        Matcher matcher = pattern.matcher(className);
+        if (!matcher.find()) {
+            throw new ReflectionException("Class name not valid, must start with a letter [A-Za-z].");
+        }
+    }
+
     @Nullable
     public static String retrieveServletName(String url) {
         Matcher matcher = Pattern.compile(URL_REGEX).matcher(url);
@@ -49,10 +79,9 @@ public class ReflectionUtility {
         if (matcher.find()) {
             String tdl = matcher.group(TLD_INDEX);
             String domain = matcher.group(DOMAIN_INDEX);
-            String servlet = matcher.group(SERVLET_INDEX);
-            return Utility.joinStrings('.', tdl, domain, "api2pojo", servlet);
+            return Utility.joinStrings('.', tdl, domain, "api2pojo").replace("-", "_");
         }
-        return Utility.joinStrings('.', "it", "mmzitarosa", "api2pojo", "model");
+        return Utility.joinStrings('.', "it", "mmzitarosa", "api2pojo").replace("-", "_");
     }
 
 }

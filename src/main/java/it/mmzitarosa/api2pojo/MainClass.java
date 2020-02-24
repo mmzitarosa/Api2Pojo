@@ -7,62 +7,121 @@ import it.mmzitarosa.api2pojo.reflection.ReflectionException;
 import it.mmzitarosa.api2pojo.reflection.ReflectionUtility;
 import org.jetbrains.annotations.Nullable;
 
+import javax.swing.*;
+import java.io.File;
+
 public class MainClass {
 
-    public static String destProject = null;
+    private static final String TITLE = "Api2Pojo";
+
+    public static File destination = null;
+    public static String apiToken = null;
     private static Network network;
+    private static String targetName;
 
     public static void main(String[] args) {
+        boolean repeat = true;
         String url = "";
-        if (args.length == 0 || args[0].equalsIgnoreCase("-h")) {
-            printHelper();
-            System.exit(0);
-        }
-
-        if (args.length > 2) {
-            System.err.println("Incompatible number of fields.");
-            System.exit(-1);
+        while (repeat) {
+            url = readUserInput("URL: ");
+            if (ReflectionUtility.isValidURL(url)) {
+                repeat = false;
+            } else {
+                showOutputMessage("URL not valid.", JOptionPane.ERROR_MESSAGE);
+            }
         }
 
         network = new Network();
-        url = args[0];
 
-        if (args.length == 2) {
-            destProject = args[1];
+        repeat = true;
+        while (repeat) {
+            destination = readUserChoice("Destination Project: ");
+            try {
+                ReflectionUtility.verifyProjectFolder(destination);
+                repeat = false;
+            } catch (ReflectionException e) {
+                showOutputMessage(e.getMessage(), JOptionPane.ERROR_MESSAGE);
+            }
         }
 
-        if (ReflectionUtility.isValidURL(url)) {
-            network.doGet(url, new NetworkCallback() {
-                @Override
-                public void onSuccess(String responseString, String url) {
-                    try {
-                        Reflection reflection = new Reflection(url, responseString);
-                        if (destProject != null) {
-                            reflection.setProjectPath(destProject);
-                        }
-                        reflection.generateClass();
-                        System.exit(0);
-                    } catch (ReflectionException e) {
-                        e.printStackTrace();
-                        System.exit(-1);
-                    }
-                }
+        network.setXAuthToken(readUserInput("Auth Token: "));
 
-                @Override
-                public void onError(String s, @Nullable Exception e) {
-                    System.err.println(s);
-                    if (e != null) e.printStackTrace();
+        targetName = ReflectionUtility.retrieveServletName(url);
+
+        repeat = true;
+        do {
+
+            try {
+                ReflectionUtility.verifyClassName(targetName);
+                repeat = false;
+            } catch (ReflectionException e) {
+                showOutputMessage(e.getMessage(), JOptionPane.ERROR_MESSAGE);
+                targetName = readUserInput("Main class name: ", targetName);
+            }
+        } while (repeat);
+
+        network.doGet(url, new NetworkCallback() {
+            @Override
+            public void onSuccess(String responseString, String url) {
+                try {
+                    Reflection reflection = new Reflection(url, responseString);
+                    if (destination != null) {
+                        reflection.setProject(destination);
+                    }
+                    reflection.generateClass(targetName);
+                    System.exit(0);
+                } catch (ReflectionException e) {
+                    e.printStackTrace();
                     System.exit(-1);
                 }
-            });
-        } else {
-            System.err.println("URL not valid.");
-            System.exit(-1);
-        }
+            }
+
+            @Override
+            public void onError(String s, @Nullable Exception e) {
+                System.err.println(s);
+                if (e != null) e.printStackTrace();
+                System.exit(-1);
+            }
+        });
     }
 
-    private static void printHelper() {
-        System.out.println("API_URL [PROJECT_PATH]");
+    private static String readUserInput(String message, String defaultValue) {
+        JFrame frame = new JFrame(TITLE);
+        String input;
+        if (defaultValue != null) {
+            input = JOptionPane.showInputDialog(frame, message, defaultValue);
+        } else {
+            input = JOptionPane.showInputDialog(frame, message, defaultValue);
+        }
+        if (input == null)
+            System.exit(0);
+        return input;
+    }
+
+    private static void showOutputMessage(String message, int option) {
+        JFrame frame = new JFrame(TITLE);
+        JOptionPane.showMessageDialog(frame, message, TITLE, option);
+
+    }
+
+    private static String readUserInput(String message) {
+        return readUserInput(message, null);
+    }
+
+    private static File readUserChoice(String message) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        int option = fileChooser.showOpenDialog(null);
+        File f = null;
+        if (option == JFileChooser.APPROVE_OPTION) {
+            f = fileChooser.getSelectedFile();
+            if (!f.isDirectory()) {
+                f = f.getParentFile();
+            }
+        } else {
+            System.exit(0);
+        }
+        return f;
     }
 
 }
